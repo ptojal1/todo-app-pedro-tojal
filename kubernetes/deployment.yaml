@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ptm-todo-app
+  labels:
+    app: ptm-todo-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ptm-todo-app
+  template:
+    metadata:
+      labels:
+        app: ptm-todo-app
+    spec:
+      containers:
+      - name: ptm-todo-app
+        image: 325583868777.dkr.ecr.eu-central-1.amazonaws.com/ptm-todo-list-app:latest
+        ports:
+        - containerPort: 3000
+          protocol: TCP
+        env:
+        - name: PORT
+          value: "3000"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+

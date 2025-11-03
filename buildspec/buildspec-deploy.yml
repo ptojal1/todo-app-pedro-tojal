@@ -1,0 +1,53 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - echo Installing kubectl...
+      - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+      - chmod +x ./kubectl
+      - mv ./kubectl /usr/local/bin/kubectl
+      - kubectl version --client
+      
+  pre_build:
+    commands:
+      - echo Configuring kubectl for EKS...
+      - aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --region $AWS_DEFAULT_REGION
+      - echo Verifying cluster connection...
+      - kubectl get nodes
+      - kubectl get namespaces
+      
+  build:
+    commands:
+      - echo Deploying to EKS on `date`
+      - echo Applying Kubernetes manifests...
+      - kubectl apply -f kubernetes/deployment.yaml
+      - kubectl apply -f kubernetes/service.yaml
+      - echo Waiting for deployment rollout...
+      - kubectl rollout status deployment/ptm-todo-app
+      
+  post_build:
+    commands:
+      - echo Deployment completed on `date`
+      - echo Checking deployment status...
+      - kubectl get deployments
+      - kubectl get pods
+      - kubectl get services
+      - echo Getting service URL...
+      - kubectl get service ptm-todo-app-service -o wide
+      - |
+        echo "Waiting for LoadBalancer to be ready..."
+        for i in {1..30}; do
+          EXTERNAL_IP=$(kubectl get service ptm-todo-app-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          if [ ! -z "$EXTERNAL_IP" ]; then
+            echo "Application URL: http://$EXTERNAL_IP"
+            break
+          fi
+          echo "Waiting for LoadBalancer... ($i/30)"
+          sleep 10
+        done
+
+artifacts:
+  files:
+    - '**/*'
+
